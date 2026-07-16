@@ -1,20 +1,23 @@
 /* GalaxyMatch AI — browser port of the Python recommendation engine.
    Same weighted-sum logic, personas, templates, and phone illustrations. */
 
-// ---------- Personas (ported from src/personas.py) ----------
+// ---------- Personas ----------
+// Mirrors src/personas.py exactly (Member 2's definitions). Ids, names, budgets
+// and weights must match, or the site and the notebook rank the same shopper
+// differently and neither is wrong-looking enough to notice.
 const PERSONAS = {
-  arjun: { name: "Arjun", need: "Engineering student, BGMI player",
-    budget_min: 20000, budget_max: 35000,
-    weights: { camera: 0.05, performance: 0.4, battery: 0.25, display: 0.2, value: 0.1 } },
-  priya: { name: "Priya", need: "Wedding photographer",
+  riya: { name: "Riya Sharma", need: "Travel content creator — photos and Instagram reels",
     budget_min: 45000, budget_max: 70000,
-    weights: { camera: 0.4, performance: 0.1, battery: 0.15, display: 0.2, value: 0.15 } },
-  neha: { name: "Neha", need: "Consultant, travels weekly",
-    budget_min: 55000, budget_max: 100000,
-    weights: { camera: 0.15, performance: 0.15, battery: 0.35, display: 0.2, value: 0.15 } },
-  ravi: { name: "Mr. Ravi", need: "Small business owner",
-    budget_min: 8000, budget_max: 20000,
-    weights: { camera: 0.05, performance: 0.05, battery: 0.3, display: 0.1, value: 0.5 } },
+    weights: { camera: 0.40, performance: 0.08, battery: 0.16, display: 0.20, value: 0.16 } },
+  kabir: { name: "Kabir Mehta", need: "CS student and mobile gamer — BGMI, COD Mobile",
+    budget_min: 22000, budget_max: 38000,
+    weights: { camera: 0.08, performance: 0.40, battery: 0.24, display: 0.20, value: 0.08 } },
+  ananya: { name: "Ananya Rao", need: "Management consultant who travels for client meetings",
+    budget_min: 55000, budget_max: 95000,
+    weights: { camera: 0.16, performance: 0.16, battery: 0.32, display: 0.20, value: 0.16 } },
+  mukesh: { name: "Mukesh Patel", need: "Grocery store owner — WhatsApp Business, UPI, video calls",
+    budget_min: 12000, budget_max: 22000,
+    weights: { camera: 0.09, performance: 0.09, battery: 0.27, display: 0.10, value: 0.45 } },
 };
 
 const DIMENSIONS = ["camera", "performance", "battery", "display", "value"];

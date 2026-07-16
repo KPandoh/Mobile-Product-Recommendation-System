@@ -1,5 +1,5 @@
 /* results.js — "Your Top 3 Matches": ranked list + CardSwap deck.
-   Reads the choice from the URL (?persona=arjun or ?q=<free text>) so
+   Reads the choice from the URL (?persona=riya or ?q=<free text>) so
    results stay shareable. Re-renders (and re-inits the deck) on chip switch. */
 
 let state = { weights: null, budget: [0, 1e9], personaId: null, label: "" };
@@ -17,7 +17,10 @@ function readParams() {
     return { weights: prefs.weights, budget: [prefs.budget_min, prefs.budget_max],
       personaId: null, label: "Based on what you told us" };
   }
-  const id = persona && PERSONAS[persona] ? persona : "arjun";
+  // Track PERSONAS rather than hardcoding an id — a stale hardcoded "arjun"
+  // is exactly what left the notebook dropdown throwing TraitError for two days
+  // after Member 2 renamed the personas.
+  const id = persona && PERSONAS[persona] ? persona : Object.keys(PERSONAS)[0];
   const p = PERSONAS[id];
   return { weights: p.weights, budget: [p.budget_min, p.budget_max],
     personaId: id, label: `For ${p.name} — ${p.need}` };
