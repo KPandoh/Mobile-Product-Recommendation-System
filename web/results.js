@@ -30,21 +30,25 @@ function recRow(rank, p) {
     `<div class="sub-row"><span class="sub-label">${label}</span>
        <div class="sub-track"><div class="sub-fill" data-w="${p[col] * 10}"></div></div>
        <span class="sub-val">${p[col].toFixed(1)}</span></div>`).join("");
+  // Same phoneVisual() as the deck, so a phone looks identical in both places.
   return `<article class="rec-row${rank === 0 ? " hot" : ""}" data-rank="${rank}">
-    <div class="rec-top">
-      <span class="rec-rank">${rank + 1}</span>
-      <span class="rec-name">${p.model_name}</span>
-      <span class="rec-seg">${segShort(p.target_segment)}</span>
-      <span class="rec-pct">${p.match_pct}%</span>
+    <div class="rec-thumb">${phoneVisual(p)}</div>
+    <div class="rec-main">
+      <div class="rec-top">
+        <span class="rec-rank">${rank + 1}</span>
+        <span class="rec-name">${p.model_name}</span>
+        <span class="rec-seg">${segShort(p.target_segment)}</span>
+        <span class="rec-pct">${p.match_pct}%</span>
+      </div>
+      <div class="rec-meta">
+        <span><b>${inr(p.price_inr)}</b></span>
+        <span>${p.camera_mp}MP camera</span>
+        <span>${p.battery_mah}mAh</span>
+        <span>${p.screen_size_inch}&Prime; ${p.refresh_rate_hz || 120}Hz</span>
+      </div>
+      <button class="rec-why">Why this score?</button>
+      <div class="breakdown"><div class="breakdown-inner">${subRows}</div></div>
     </div>
-    <div class="rec-meta">
-      <span><b>${inr(p.price_inr)}</b></span>
-      <span>${p.camera_mp}MP camera</span>
-      <span>${p.battery_mah}mAh</span>
-      <span>${p.screen_size_inch}&Prime; ${p.refresh_rate_hz || 120}Hz</span>
-    </div>
-    <button class="rec-why">Why this score?</button>
-    <div class="breakdown"><div class="breakdown-inner">${subRows}</div></div>
   </article>`;
 }
 
