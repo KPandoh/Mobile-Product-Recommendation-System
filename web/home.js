@@ -12,10 +12,38 @@ document.querySelectorAll(".p-card").forEach((card) => {
 // personas.html — free-text search.
 const input = document.getElementById("describe-input");
 if (input) {
-  const go = () => {
+  const button = document.getElementById("describe-go");
+  const feedback = document.getElementById("describe-feedback");
+  const go = async () => {
     if (!input.value.trim()) { input.focus(); return; }
-    location.href = `results.html?q=${encodeURIComponent(input.value.trim())}`;
+    const query = input.value.trim();
+    button.disabled = true;
+    button.textContent = "Finding...";
+    let profile = null;
+    try {
+      const response = await fetch("/api/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      const data = await response.json();
+      if (data && data.blocked) {
+        if (feedback) {
+          feedback.textContent = data.message || "I can help you choose a Galaxy phone. Tell me your budget and priorities.";
+          feedback.hidden = false;
+        }
+        button.disabled = false;
+        button.textContent = "Find my Galaxy";
+        return;
+      }
+      profile = data && data.profile;
+    } catch (_) {
+      // Local extraction on results.html remains the offline fallback.
+    }
+    const params = new URLSearchParams({ q: query });
+    if (profile) params.set("profile", JSON.stringify(profile));
+    location.href = `results.html?${params.toString()}`;
   };
-  document.getElementById("describe-go").addEventListener("click", go);
+  button.addEventListener("click", go);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
 }
