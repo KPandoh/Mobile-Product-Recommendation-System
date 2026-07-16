@@ -56,7 +56,7 @@
       if (o.onCardClick) el.addEventListener("click", () => o.onCardClick(i));
     });
 
-    if (REDUCED || total < 2) return { destroy() {} };
+    if (REDUCED || total < 2) return { select, destroy() {} };
 
     function swap() {
       if (order.length < 2) return;
@@ -84,6 +84,32 @@
       tl.call(() => { order = [...rest, front]; });
     }
 
+    function select(index) {
+      if (!Number.isInteger(index) || index < 0 || index >= total) return;
+      if (!order.includes(index)) return;
+
+      const nextOrder = [index, ...order.filter((item) => item !== index)];
+      order = nextOrder;
+      if (tl) tl.kill();
+
+      if (REDUCED) {
+        nextOrder.forEach((cardIndex, slotIndex) => {
+          placeNow(cards[cardIndex], makeSlot(slotIndex, o.cardDistance, o.verticalDistance, total), 0);
+        });
+        return;
+      }
+
+      tl = gsap.timeline();
+      nextOrder.forEach((cardIndex, slotIndex) => {
+        const slot = makeSlot(slotIndex, o.cardDistance, o.verticalDistance, total);
+        tl.set(cards[cardIndex], { zIndex: slot.zIndex }, 0);
+        tl.to(cards[cardIndex], {
+          x: slot.x, y: slot.y, z: slot.z, skewY: o.skewAmount,
+          duration: 0.8, ease: "power2.out",
+        }, 0);
+      });
+    }
+
     swap();
     interval = window.setInterval(swap, o.delay);
 
@@ -96,6 +122,7 @@
     }
 
     return {
+      select,
       destroy() {
         clearInterval(interval);
         if (tl) tl.kill();

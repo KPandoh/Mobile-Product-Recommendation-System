@@ -5,7 +5,7 @@
 let state = { weights: null, budget: [0, 1e9], personaId: null, label: "" };
 let deck = null; // active CardSwap instance
 
-const SUBS = [["camera_score", "Camera"], ["performance_score", "Performance"],
+const RESULT_SUBS = [["camera_score", "Camera"], ["performance_score", "Performance"],
   ["battery_score", "Battery"], ["display_score", "Display"], ["value_score", "Value"]];
 
 function readParams() {
@@ -13,9 +13,16 @@ function readParams() {
   const q = params.get("q");
   const persona = params.get("persona");
   if (q) {
-    const prefs = extractPreferences(q);
+    let prefs = null;
+    try {
+      const profile = JSON.parse(params.get("profile") || "null");
+      if (profile && profile.weights && Array.isArray(profile.weights) === false) {
+        prefs = { weights: profile.weights, budget_min: profile.budget_min, budget_max: profile.budget_max };
+      }
+    } catch (_) { /* malformed profile falls back to local extraction */ }
+    prefs = prefs || extractPreferences(q);
     return { weights: prefs.weights, budget: [prefs.budget_min, prefs.budget_max],
-      personaId: null, label: "Based on what you told us" };
+      personaId: null, label: "Based on your description" };
   }
   // Track PERSONAS rather than hardcoding an id — a stale hardcoded "arjun"
   // is exactly what left the notebook dropdown throwing TraitError for two days
@@ -55,7 +62,7 @@ async function enhanceTopExplanation(p) {
 }
 
 function recRow(rank, p) {
-  const subRows = SUBS.map(([col, label]) =>
+  const subRows = RESULT_SUBS.map(([col, label]) =>
     `<div class="sub-row"><span class="sub-label">${label}</span>
        <div class="sub-track"><div class="sub-fill" data-w="${p[col] * 10}"></div></div>
        <span class="sub-val">${p[col].toFixed(1)}</span></div>`).join("");
@@ -70,7 +77,7 @@ function recRow(rank, p) {
     <div class="rec-thumb">${phoneVisual(p)}</div>
     <div class="rec-main">
       <div class="rec-top">
-        <span class="rec-rank">${rank + 1}</span>
+        <button class="rec-rank" type="button" aria-label="Select match ${rank + 1}" title="Show match ${rank + 1}">${rank + 1}</button>
         <span class="rec-name">${p.model_name}</span>
         <span class="rec-seg">${segShort(p.target_segment)}</span>
         <span class="rec-pct">${p.match_pct}%</span>
@@ -116,6 +123,32 @@ function paint() {
   list.querySelectorAll(".rec-why").forEach(btn =>
     btn.addEventListener("click", () => btn.nextElementSibling.classList.toggle("open")));
 
+  const selectResult = (index) => {
+    if (!Number.isInteger(index) || index < 0 || index >= top3.length) return;
+    if (deck && typeof deck.select === "function") deck.select(index);
+    list.querySelectorAll(".rec-row").forEach((row) => {
+      const selected = Number(row.dataset.rank) === index;
+      row.classList.toggle("hot", selected);
+      row.setAttribute("aria-current", selected ? "true" : "false");
+      row.querySelector(".breakdown")?.classList.toggle("open", selected);
+    });
+    document.getElementById("cs-stage")?.querySelectorAll(".cs-card").forEach((card) => {
+      card.classList.toggle("is-selected", Number(card.dataset.rank) === index);
+    });
+    const row = list.querySelector(`.rec-row[data-rank="${index}"]`);
+    if (row && window.matchMedia("(max-width: 1020px)").matches) {
+      if (window.__lenis) window.__lenis.scrollTo(row, { offset: -80 });
+      else row.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+
+  list.querySelectorAll(".rec-row").forEach((row) => {
+    row.addEventListener("click", (event) => {
+      if (event.target.closest(".rec-why") || event.target.closest(".breakdown")) return;
+      selectResult(Number(row.dataset.rank));
+    });
+  });
+
   enhanceTopExplanation(top3[0]);
 
   const stage = document.getElementById("cs-stage");
@@ -124,18 +157,9 @@ function paint() {
   deck = initCardSwap(stage, {
     cardDistance: 55, verticalDistance: 64, delay: 4500,
     pauseOnHover: true, skewAmount: 5, easing: "elastic",
-    onCardClick: (idx) => {
-      // clicking a card highlights + opens its row
-      list.querySelectorAll(".rec-row").forEach(r => r.classList.remove("hot"));
-      const row = list.querySelector(`.rec-row[data-rank="${idx}"]`);
-      if (row) {
-        row.classList.add("hot");
-        row.querySelector(".breakdown").classList.add("open");
-        if (window.__lenis) window.__lenis.scrollTo(row, { offset: -80 });
-        else row.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    },
+    onCardClick: (idx) => selectResult(idx),
   });
+  selectResult(0);
 }
 
 function renderChips() {
