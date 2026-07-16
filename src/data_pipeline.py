@@ -28,7 +28,11 @@ _RAW_SPEC_COLUMNS = [
 _SCORE_COLUMNS = [
     "camera_score", "performance_score", "battery_score", "display_score", "value_score",
 ]
-_VALID_SEGMENTS = {"gaming", "photography", "business", "budget"}
+# Tier labels used by the 2025-2026 dataset (Member 1's phones.csv)
+_VALID_SEGMENTS = {
+    "flagship", "flagship (s pen)", "foldable flagship", "foldable (value)",
+    "upper mid-range", "mid-range", "budget",
+}
 
 
 def load_and_clean(raw_path: Path = RAW_PATH) -> pd.DataFrame:
