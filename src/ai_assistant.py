@@ -17,14 +17,29 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src import llm_client, security
+from google.genai import types
+
+from src import llm_client, rag, security
 from src.prompts import (
     EXPLANATION_PROMPT,
     BADGE_PROMPT,
     COMPARISON_PROMPT,
     SUMMARY_PROMPT,
+    SYSTEM_INSTRUCTION,
 )
 
+# The always-on rules ride on every call rather than being restated in each
+# template. seed keeps the notebook's A/B comparison reproducible for a marker
+# re-running it.
+GROUNDED_CFG = types.GenerateContentConfig(
+    system_instruction=SYSTEM_INSTRUCTION,
+    max_output_tokens=400,
+    seed=7,
+)
+
+# Guards user-initiated bursts (Find / Refine), not the per-card render loop:
+# results render three cards back to back, so a per-call limiter let only the
+# first card reach Gemini and silently templated the other two.
 _rate_limiter = security.RateLimiter()
 
 
@@ -94,40 +109,18 @@ def generate_explanation_llm(
     phone_row: pd.Series,
 ) -> str | None:
 
-    if not _rate_limiter.allow():
-        return None
-
-    # Calculate an overall score for the prompt (all five dimensions)
-    overall_score = round(
-        (
-            phone_row["camera_score"]
-            + phone_row["performance_score"]
-            + phone_row["battery_score"]
-            + phone_row["display_score"]
-            + phone_row["value_score"]
-        ) / 5,
-        1,
-    )
-
+    # RAG step 3: hand the retrieved row's real specifications to the prompt.
+    # recommend_phone() already selected this row (step 2) — until now its
+    # specs were dropped here and only the model name survived.
     prompt = EXPLANATION_PROMPT.format(
-        persona=(
-            f"Camera Priority: {weights['camera']}, "
-            f"Performance Priority: {weights['performance']}, "
-            f"Battery Priority: {weights['battery']}, "
-            f"Display Priority: {weights.get('display', 0)}, "
-            f"Value Priority: {weights['value']}"
-        ),
-        phone=phone_row["model_name"],
-        camera=f"{phone_row['camera_score']:.1f}",
-        performance=f"{phone_row['performance_score']:.1f}",
-        battery=f"{phone_row['battery_score']:.1f}",
-        value=f"{phone_row['value_score']:.1f}",
-        overall=overall_score,
+        profile=rag.build_user_profile(weights),
+        phone_context=rag.build_phone_context(phone_row),
     )
 
     return llm_client.call_llm(
         prompt,
         expect_json=False,
+        config=GROUNDED_CFG,
     )
 
 
@@ -160,16 +153,13 @@ def generate_explanation(
 def generate_badge_reason(phone_row, badge):
 
     prompt = BADGE_PROMPT.format(
-        phone=phone_row["model_name"],
-        camera=phone_row["camera_score"],
-        performance=phone_row["performance_score"],
-        battery=phone_row["battery_score"],
-        value=phone_row["value_score"],
+        phone_context=rag.build_phone_context(phone_row),
     )
 
     reason = llm_client.call_llm(
         prompt,
         expect_json=False,
+        config=GROUNDED_CFG,
     )
 
     if reason:
@@ -205,25 +195,18 @@ def compare_phones_ai(phone1, phone2):
     """
 
     prompt = COMPARISON_PROMPT.format(
-        phone1=phone1["model_name"],
-        camera1=phone1["camera_score"],
-        performance1=phone1["performance_score"],
-        battery1=phone1["battery_score"],
-        value1=phone1["value_score"],
-        phone2=phone2["model_name"],
-        camera2=phone2["camera_score"],
-        performance2=phone2["performance_score"],
-        battery2=phone2["battery_score"],
-        value2=phone2["value_score"],
+        phone1_context=rag.build_phone_context(phone1),
+        phone2_context=rag.build_phone_context(phone2),
     )
 
     comparison = llm_client.call_llm(
         prompt,
         expect_json=False,
+        config=GROUNDED_CFG,
     )
 
     if comparison:
-        return comparison
+        return security.sanitize_for_html(comparison)
 
     # ---------- Rule-based fallback ----------
 
@@ -255,21 +238,17 @@ def generate_recommendation_summary(weights, top_phones):
     """
 
     prompt = SUMMARY_PROMPT.format(
-        priorities=(
-            f"Camera: {weights['camera']}, "
-            f"Performance: {weights['performance']}, "
-            f"Battery: {weights['battery']}, "
-            f"Display: {weights.get('display', 0)}, "
-            f"Value: {weights['value']}"
+        profile=rag.build_user_profile(weights),
+        phones_context="\n\n".join(
+            rag.build_phone_context(p, include_scores=False)
+            for p in top_phones[:3]
         ),
-        phone1=top_phones[0]["model_name"],
-        phone2=top_phones[1]["model_name"],
-        phone3=top_phones[2]["model_name"],
     )
 
     summary = llm_client.call_llm(
         prompt,
         expect_json=False,
+        config=GROUNDED_CFG,
     )
 
     if summary:
