@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 
 from src import llm_client, security
+from src.prompts import PERSONA_PROMPT
 
 PERSONAS = {
     "riya": {
@@ -99,32 +100,53 @@ def _extract_rule_based(description: str) -> dict:
 
 
 def call_llm_extract(description: str) -> dict | None:
-    """Asks the local model to return weights+budget as JSON. Returns None
-    (triggering the rule-based fallback) if Ollama isn't reachable or the
-    output isn't valid JSON in the expected shape."""
+    """Uses Gemini to extract preferences from natural language."""
+
     if not _rate_limiter.allow():
         return None
 
     prompt = (
-        "You are a Samsung shopping assistant. A customer described themselves as: "
-        f'"{description}"\n\n'
-        "Return ONLY a JSON object with this exact shape, weights summing to 1.0:\n"
-        '{"weights": {"camera": 0.0, "performance": 0.0, "battery": 0.0, "value": 0.0}, '
-        '"budget_min": 0, "budget_max": 0}'
+        PERSONA_PROMPT
+        + "\n\nCustomer Description:\n"
+        + description
     )
-    result = llm_client.call_local_llm(prompt, expect_json=True)
-    if not result or "weights" not in result:
+
+    result = llm_client.call_llm(
+        prompt,
+        expect_json=True,
+    )
+
+    if not result:
         return None
 
-    weights = result["weights"]
-    if abs(sum(weights.values()) - 1.0) > 0.05:
-        return None  # malformed — let the rule-based path handle it
+    try:
+        weights = {
+            "camera": result["camera"],
+            "performance": result["performance"],
+            "battery": result["battery"],
+            "value": result["value"],
+        }
 
-    return {
-        "weights": weights,
-        "budget_min": security.clamp_budget(result.get("budget_min", 20000)),
-        "budget_max": security.clamp_budget(result.get("budget_max", 60000)),
-    }
+        total = sum(weights.values())
+
+        if total == 0:
+            return None
+
+        weights = {
+            key: value / total
+            for key, value in weights.items()
+        }
+
+        budget = security.clamp_budget(result["budget"])
+
+        return {
+            "weights": weights,
+            "budget_min": security.clamp_budget(int(budget * 0.8)),
+            "budget_max": security.clamp_budget(int(budget * 1.2)),
+        }
+
+    except (KeyError, TypeError):
+        return None
 
 
 def extract_preferences_from_text(description: str) -> dict:

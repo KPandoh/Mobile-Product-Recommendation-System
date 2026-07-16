@@ -6,10 +6,25 @@ from __future__ import annotations
 import pandas as pd
 
 _BADGE_META = {
-    "camera_score": ("camera", "Best Camera"),
-    "performance_score": ("bolt", "Gaming Beast"),
-    "value_score": ("balance", "Best Value"),
-    "battery_score": ("bolt", "Marathon Battery"),
+    "camera_score": (
+        "camera",
+        "🏆 Best Camera"
+    ),
+
+    "performance_score": (
+        "bolt",
+        "🎮 Gaming Beast"
+    ),
+
+    "battery_score": (
+        "battery",
+        "🔋 Battery Champion"
+    ),
+
+    "value_score": (
+        "balance",
+        "💰 Best Value"
+    ),
 }
 
 

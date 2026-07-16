@@ -1,40 +1,52 @@
-"""Shared local Ollama client, used by personas.py and ai_assistant.py.
-
-Not yet installed on this machine (Ollama + `ollama pull llama3.2` are a
-build-phase prerequisite, see the plan). Every caller treats a `None`
-return as "fall back to the rule-based/template path" — so the app works
-identically whether or not Ollama happens to be running.
-"""
-
 from __future__ import annotations
 
 import json
+import os
 
-import requests
+from dotenv import load_dotenv
+from google import genai
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "llama3.2"
+load_dotenv()
+
+API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not API_KEY:
+    raise RuntimeError(
+        "GEMINI_API_KEY not found. Please create a .env file."
+    )
+
+client = genai.Client(api_key=API_KEY)
+
+MODEL_NAME = "gemini-3.5-flash"
 
 
-def call_local_llm(prompt: str, expect_json: bool = False, timeout: float = 5.0):
-    """Returns the model's text (or parsed dict if expect_json=True), or None
-    on any failure — connection refused, timeout, or unparseable output —
-    so callers always have a clean fallback signal instead of a crash."""
-    payload = {"model": MODEL_NAME, "prompt": prompt, "stream": False}
-    if expect_json:
-        payload["format"] = "json"
+def call_llm(
+    prompt: str,
+    expect_json: bool = False,
+):
+    """
+    Returns:
+        str        -> normal text
+        dict       -> parsed JSON
+        None       -> any failure
+    """
 
     try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=timeout)
-        response.raise_for_status()
-    except requests.RequestException:
-        return None
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt,
+        )
 
-    text = response.json().get("response", "").strip()
-    if not expect_json:
-        return text or None
+        text = response.text.strip()
 
-    try:
+        if not expect_json:
+            return text
+
         return json.loads(text)
-    except (json.JSONDecodeError, TypeError):
+
+    except Exception as e:
+        print("=" * 50)
+        print("Gemini Error:")
+        print(e)
+        print("=" * 50)
         return None
