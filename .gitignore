@@ -16,6 +16,13 @@ __pycache__/
 data/cleaned_phone_data.csv
 data/normalized_scores.csv
 
+# Local phone product photos (copyrighted — not committed; SVG fallback is used
+# when these are absent). Keep the README, ignore the images.
+assets/phones/*.png
+assets/phones/*.jpg
+assets/phones/*.jpeg
+assets/phones/*.webp
+
 # OS
 .DS_Store
 Thumbs.db

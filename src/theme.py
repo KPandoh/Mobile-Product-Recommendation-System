@@ -9,6 +9,7 @@ JupyterLab, and the VS Code Jupyter extension.
 """
 
 import base64
+import re
 from pathlib import Path
 
 from IPython.display import HTML, display
@@ -110,7 +111,7 @@ def _camera_group(family: str) -> str:
     )
 
 
-def phone_svg(model_name: str) -> str:
+def _phone_svg(model_name: str) -> str:
     """Returns an inline SVG of a phone backside, styled per phone family."""
     camera = _camera_group(_phone_family(model_name))
     return (
@@ -121,6 +122,50 @@ def phone_svg(model_name: str) -> str:
         '<rect x="10" y="5" width="44" height="56" rx="12" fill="rgba(255,255,255,0.035)"/>'
         f'{camera}'
         '</svg>'
+    )
+
+
+# --- Real phone photos (optional, local + gitignored) ---------------------
+# If a product photo exists in assets/phones/ for a model, use it; otherwise
+# fall back to the drawn SVG above. Photos are wrapped in a light "product
+# tile" so GSMArena-style white-background shots look intentional on the dark
+# cards. Keeping the photos gitignored means we don't commit/redistribute
+# copyrighted images — the SVG fallback is what teammates without the photos
+# will see.
+
+_PHONE_IMG_DIR = Path(__file__).resolve().parent.parent / "assets" / "phones"
+_IMG_EXTS = (".png", ".webp", ".jpg", ".jpeg")
+_MIME = {".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+
+
+def phone_slug(model_name: str) -> str:
+    """Filename stem expected for a model's photo, e.g. 'Galaxy S24+' -> 'galaxy_s24_plus'."""
+    s = model_name.lower().replace("+", "_plus")
+    return re.sub(r"[^a-z0-9]+", "_", s).strip("_")
+
+
+def _find_phone_image(model_name: str):
+    if not _PHONE_IMG_DIR.exists():
+        return None
+    slug = phone_slug(model_name)
+    for ext in _IMG_EXTS:
+        candidate = _PHONE_IMG_DIR / f"{slug}{ext}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def phone_svg(model_name: str) -> str:
+    """Public entry used by the notebook: a real product photo if one exists
+    in assets/phones/, otherwise the drawn SVG fallback."""
+    img_path = _find_phone_image(model_name)
+    if img_path is None:
+        return _phone_svg(model_name)
+    data = base64.b64encode(img_path.read_bytes()).decode("ascii")
+    mime = _MIME[img_path.suffix.lower()]
+    safe_name = model_name.replace('"', "")
+    return (
+        f'<div class="gm-phone-photo"><img src="data:{mime};base64,{data}" alt="{safe_name}"/></div>'
     )
 
 
@@ -250,6 +295,14 @@ def build_theme_css() -> str:
 
 .gm-phone-render {{ position: relative; height: 110px; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; z-index: 1; }}
 .gm-phone-glow {{ position: absolute; width: 70%; height: 70%; border-radius: 50%; filter: blur(40px); opacity: 0.5; }}
+/* Product tile wrapper for real photos (e.g. GSMArena white-background shots),
+   so the light background reads as an intentional thumbnail on the dark card. */
+.gm-phone-photo {{
+  position: relative; z-index: 1; background: #f4f6fb; border-radius: 14px;
+  padding: 5px 10px; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 14px 26px -12px rgba(0,0,0,0.55);
+}}
+.gm-phone-photo img {{ height: 98px; max-width: 100%; object-fit: contain; display: block; }}
 .gm-phone-shape {{
   position: relative; width: 46px; height: 96px; border-radius: 13px;
   background: linear-gradient(160deg, var(--gm-surface-container-highest), var(--gm-surface-container));
