@@ -15,10 +15,12 @@ const go = () => {
 document.getElementById("describe-go").addEventListener("click", go);
 input.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
 
-// Nav CTA + footnote link scroll to the persona picker.
+// Nav CTA + footnote link scroll to the persona picker (via Lenis when active).
 const toPersonas = (e) => {
   e.preventDefault();
-  document.getElementById("personas").scrollIntoView({ behavior: "smooth", block: "start" });
+  const target = document.getElementById("personas");
+  if (window.__lenis) window.__lenis.scrollTo(target, { offset: -12 });
+  else target.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 document.getElementById("nav-get").addEventListener("click", toPersonas);
 document.getElementById("foot-more").addEventListener("click", toPersonas);
