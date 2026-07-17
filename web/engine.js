@@ -101,6 +101,27 @@ const UNKNOWN_MODEL_RE = /\b(?:samsung|galaxy)\s+(?:galaxy\s+)?[a-z]{0,5}-?\s?(\
 // a guess. Flip and A/M/F series don't support it.
 const SPEN_RE = /\bs[\s-]?pen\b/i;
 const SPEN_MODELS_RE = /\bultra\b|\bfold\d*\b/i;
+
+// Naming a model ("s26", "fold 7") is a direct request for that phone, not a
+// set of preferences to infer. Without this, "s26" fell through to generic
+// weights plus the default 28k-46k budget, the real S26 sits well above that,
+// so it was filtered out and an unrelated F55 was shown as the "match".
+// Tokens are 1-2 digits by design -- UNKNOWN_MODEL_RE already refuses the
+// 3+ digit numbers that can't be real models.
+const MODEL_TOKEN_RE = /\b[a-z]{1,4}\d{1,3}\+?/g;
+function modelTokens(text) {
+  // "fold 7" and "s 26" are the same ask as "fold7"/"s26" -- join the digit
+  // back onto its letters before tokenising.
+  const joined = String(text || "").toLowerCase().replace(/([a-z])\s+(\d)/g, "$1$2");
+  // Trailing "+" is dropped so "s26" also finds the S26+ -- naming a line
+  // should never hide a variant of the phone that was asked for.
+  return (joined.match(MODEL_TOKEN_RE) || []).map(t => t.replace(/\+$/, ""));
+}
+function matchNamedModels(text, phones) {
+  const asked = modelTokens(text);
+  if (!asked.length) return [];
+  return phones.filter(p => modelTokens(p.model_name).some(t => asked.includes(t)));
+}
 const SAMSUNG_ONLY_MESSAGE =
   "We provide recommendations for Samsung Galaxy phones only. Tell me your budget and what matters most — camera, gaming, battery, display, or value.";
 const SAFE_REDIRECT_MESSAGE =
