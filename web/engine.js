@@ -83,7 +83,7 @@ function generateExplanation(weights, p) {
 // mattered more — abusive text had NO screening at all on this path, only
 // the competitor check, since it was added later and never backfilled here.
 const COMPETITOR_RE = /\b(?:iphone|apple|pixel|google pixel|oneplus|xiaomi|redmi|oppo|vivo|realme)\b/i;
-const ABUSE_RE = /\b(?:fuck(?:ing|ed)?|shit(?:ty)?|bitch|asshole|bastard|dumbass|idiot|moron|stupid|dumb|loser|pathetic|jerk|trash|garbage|useless|worthless|suck(?:s|ed)?)\b|\bshut\s+up\b|\bscrew\s+you\b/i;
+const ABUSE_RE = /\b(?:fuck(?:ing|ed)?|shit(?:ty)?|bitch|asshole|bastard|dumbass|idiot|idiotic|moron|moronic|imbecile|stupid|dumb|fool(?:s|ish)?|silly|lame|clown|loser|pathetic|jerk|prick|dickhead|douche(?:bag)?|scumbag|wanker|cunt|twat|trash|garbage|useless|worthless|nonsense|rubbish|bullshit|wtf|stfu|suck(?:s|ed)?)\b|\bshut\s+up\b|\bscrew\s+you\b/i;
 // Mirrors api/safety.js's SLUR_RE -- racial, ethnic, homophobic, and ableist
 // slurs, checked separately so they're always a strike no matter what else
 // the message says.

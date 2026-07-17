@@ -7,7 +7,10 @@ const SAFE_REDIRECT =
 // Keep this intentionally conservative. The model should handle ordinary
 // frustration, while clearly abusive/threatening input is stopped before it
 // reaches the provider. We do not log or echo the matched text.
-const ABUSE_RE = /\b(?:fuck(?:ing|ed)?|shit(?:ty)?|bitch|asshole|bastard|dumbass|idiot|moron|stupid|dumb|loser|pathetic|jerk|trash|garbage|useless|worthless|suck(?:s|ed)?)\b|\bshut\s+up\b|\bscrew\s+you\b/i;
+// Deliberately excludes words that are ordinary phone-shopping vocabulary:
+// "worst battery", "I hate small screens", "damn good camera" are opinions,
+// not abuse, and blocking them would refuse real shoppers.
+const ABUSE_RE = /\b(?:fuck(?:ing|ed)?|shit(?:ty)?|bitch|asshole|bastard|dumbass|idiot|idiotic|moron|moronic|imbecile|stupid|dumb|fool(?:s|ish)?|silly|lame|clown|loser|pathetic|jerk|prick|dickhead|douche(?:bag)?|scumbag|wanker|cunt|twat|trash|garbage|useless|worthless|nonsense|rubbish|bullshit|wtf|stfu|suck(?:s|ed)?)\b|\bshut\s+up\b|\bscrew\s+you\b/i;
 // Racial, ethnic, homophobic, and ableist slurs -- checked separately from
 // ABUSE_RE and always a strike (never just logged/softened), regardless of
 // what the rest of the message says.

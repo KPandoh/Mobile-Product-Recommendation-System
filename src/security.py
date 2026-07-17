@@ -22,9 +22,14 @@ SAFE_REDIRECT = (
     "I can help you choose a Samsung Galaxy phone. Tell me your budget and "
     "what matters most, such as camera, gaming, battery, display, or value."
 )
+# Deliberately excludes words that are ordinary phone-shopping vocabulary:
+# "worst battery", "I hate small screens", "damn good camera" are opinions,
+# not abuse, and blocking them would refuse real shoppers.
 _ABUSE_RE = re.compile(
-    r"\b(?:fuck(?:ing|ed)?|shit(?:ty)?|bitch|asshole|bastard|dumbass|idiot|moron|stupid|"
-    r"dumb|loser|pathetic|jerk|trash|garbage|useless|worthless|suck(?:s|ed)?)\b"
+    r"\b(?:fuck(?:ing|ed)?|shit(?:ty)?|bitch|asshole|bastard|dumbass|idiot|idiotic|"
+    r"moron|moronic|imbecile|stupid|dumb|fool(?:s|ish)?|silly|lame|clown|loser|"
+    r"pathetic|jerk|prick|dickhead|douche(?:bag)?|scumbag|wanker|cunt|twat|trash|"
+    r"garbage|useless|worthless|nonsense|rubbish|bullshit|wtf|stfu|suck(?:s|ed)?)\b"
     r"|\bshut\s+up\b|\bscrew\s+you\b",
     re.IGNORECASE,
 )

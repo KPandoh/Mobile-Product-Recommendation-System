@@ -63,6 +63,19 @@ def test_screen_user_text_blocks_nonexistent_model_numbers():
         assert result["blocked"] is False, text
 
 
+def test_abuse_screening_does_not_block_ordinary_shopper_language():
+    # The abuse list has to stay narrow enough that real complaints get
+    # through: "worst battery", "I hate small screens" and "damn good camera"
+    # are opinions, and refusing them would turn the guardrail into a bug.
+    for text in [
+        "the worst thing is battery life, need something better",
+        "I hate small screens, want a big display",
+        "damn good camera please, budget 50000",
+        "college student, budget 30000, play BGMI",
+    ]:
+        assert security.screen_user_text(text)["blocked"] is False, text
+
+
 def test_screen_user_text_reason_distinguishes_abuse_from_other_blocks():
     # Callers use `reason` to decide whether a block counts as a strike
     # toward the 24h abuse ban -- only "abuse" should ever count. Getting
