@@ -20,12 +20,22 @@ if (input) {
     button.textContent = "Find my Galaxy";
   };
 
+  // Prefill with the last description so a shopper can tweak it instead of
+  // retyping from scratch -- e.g. bump the budget or add a persona detail.
+  const LAST_QUERY_KEY = "gm_last_query";
+  const lastQuery = localStorage.getItem(LAST_QUERY_KEY);
+  if (lastQuery) {
+    input.value = lastQuery;
+    input.setSelectionRange(lastQuery.length, lastQuery.length);
+  }
+
   const go = async () => {
     if (!input.value.trim()) { input.focus(); return; }
     // Checked before spending a network round trip: a banned browser gets
     // the same restriction message immediately, every time, until it lifts.
     if (AIGuard.isBanned()) { showFeedback(AIGuard.banMessage()); return; }
     const query = input.value.trim();
+    localStorage.setItem(LAST_QUERY_KEY, query);
     button.disabled = true;
     button.textContent = "Finding...";
     let profile = null;

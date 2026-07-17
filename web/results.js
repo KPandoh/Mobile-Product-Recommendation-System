@@ -52,7 +52,7 @@ function readParams() {
 function inr(n) { return "₹" + n.toLocaleString("en-IN"); }
 
 // Progressive enhancement: the card already shows the local template. Ask the
-// serverless function (which holds the API key) for a grounded Gemini
+// serverless function (which holds the API key) for a grounded AI
 // explanation and swap it in if it comes back. Any failure leaves the template
 // in place — the card is never blank, and the page never blocks on this.
 //
