@@ -39,9 +39,23 @@ function inr(n) { return "₹" + n.toLocaleString("en-IN"); }
 // serverless function (which holds the API key) for a grounded Gemini
 // explanation and swap it in if it comes back. Any failure leaves the template
 // in place — the card is never blank, and the page never blocks on this.
+//
+// Guarded by AIGuard so re-selecting the same persona during a demo reuses
+// the cached answer, and once quota is exhausted the site stops asking for a
+// few minutes rather than eating a failing round-trip on every render.
 async function enhanceTopExplanation(p) {
   const el = document.getElementById("rec-explain");
   if (!el || !p) return;
+
+  const cacheKey = `explain:${p.model_name}:${JSON.stringify(state.weights)}`;
+  const cached = AIGuard.cacheGet(cacheKey);
+  if (cached) {
+    el.textContent = cached;
+    el.classList.add("rec-why-ai");
+    return;
+  }
+  if (AIGuard.isDown()) return; // known-exhausted this session — keep the template, skip the network call
+
   el.classList.add("rec-why-loading");
   try {
     const res = await fetch("/api/explain", {
@@ -53,9 +67,14 @@ async function enhanceTopExplanation(p) {
     if (data && data.text) {
       el.textContent = data.text;
       el.classList.add("rec-why-ai");      // shows the "✦ Gemini" tag via CSS
+      AIGuard.cacheSet(cacheKey, data.text);
+      AIGuard.noteResult(true);
+    } else {
+      AIGuard.noteResult(false);
     }
   } catch (_) {
     /* offline, or no /api (e.g. opened as a file): keep the template */
+    AIGuard.noteResult(false);
   } finally {
     el.classList.remove("rec-why-loading");
   }
