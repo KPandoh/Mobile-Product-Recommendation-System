@@ -435,11 +435,21 @@ a.nav-cta { display: inline-flex; align-items: center; }
 }
 .rec-why-loading { opacity: 0.45; }
 /* When the grounded AI text lands, tag it so it's visibly live -- provider-neutral
-   since the backend can be Gemini or Groq depending on which key is configured. */
+   since the backend can be Gemini or Groq depending on which key is configured.
+   Shiny-text sweep (pure CSS gradient-text, no JS/framework) signals "this
+   one's special" without being a distraction. */
+@keyframes shineSweep {
+  0% { background-position: 150% center; }
+  100% { background-position: -50% center; }
+}
 .rec-why-ai::before {
   content: "✦ AI powered"; display: inline-block; margin-right: 8px;
   font-size: 10px; font-weight: 800; letter-spacing: 0.06em; vertical-align: 1px;
-  color: #6a5cff; border: 1px solid #d9d5ff; border-radius: 999px; padding: 2px 7px;
+  border: 1px solid #d9d5ff; border-radius: 999px; padding: 2px 7px;
+  background-image: linear-gradient(120deg, #6a5cff 0%, #6a5cff 35%, #c9c0ff 50%, #6a5cff 65%, #6a5cff 100%);
+  background-size: 200% auto; background-position: 150% center;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+  animation: shineSweep 2.4s linear infinite;
 }
 .rec-why {
   margin: 12px 0 0 42px; border: none; background: none; padding: 0;
