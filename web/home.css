@@ -337,6 +337,10 @@ a.nav-cta { display: inline-flex; align-items: center; }
 .describe-feedback::before { content: "⚠"; flex: none; font-size: 16px; line-height: 1.5; }
 @media (max-width: 560px) { .describe-row { flex-direction: column; } }
 
+/* Ensure the HTML `[hidden]` attribute always hides elements, even when
+  equal-specificity class rules (e.g. `display: flex`) are present. */
+[hidden] { display: none !important; }
+
 .disclaimer { text-align: center; color: #a3a7ae; font-size: 12px; padding: 0 20px 34px; }
 
 /* ============================== SPECULAR BUTTON FX ============================== */
