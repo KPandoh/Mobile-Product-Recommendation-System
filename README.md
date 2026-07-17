@@ -75,7 +75,7 @@ pip install google-genai
 Groq llama_API_KEY=your-key-here
 ```
 
-Get a key from [Google AI Studio](https://aistudio.google.com/). Note:
+Note:
 `src/llm_client.py` currently *requires* this key to import — without a
 `.env` the notebook will not start. AI calls fail gracefully at runtime
 (rule-based fallbacks take over), so a placeholder key is enough to run
