@@ -21,6 +21,18 @@ def test_screen_user_text_blocks_abuse_without_echoing_it():
     assert result["text"] == ""
 
 
+def test_screen_user_text_reason_distinguishes_abuse_from_other_blocks():
+    # Callers use `reason` to decide whether a block counts as a strike
+    # toward the 24h abuse ban -- only "abuse" should ever count. Getting
+    # this wrong means someone asking about an iPhone gets banned as if
+    # they'd been abusive, which they weren't.
+    assert security.screen_user_text("you are an idiot")["reason"] == "abuse"
+    assert security.screen_user_text("kill you right now")["reason"] == "abuse"
+    assert security.screen_user_text("I want an iPhone")["reason"] == "competitor"
+    assert security.screen_user_text("x" * 1001)["reason"] == "length"
+    assert security.screen_user_text("budget 30000, need battery")["reason"] is None
+
+
 def test_screen_user_text_blocks_competitor_phones():
     # Without this, "recommend me an iPhone" matches none of personas.py's
     # keyword buckets, falls into the default weights, and the app quietly

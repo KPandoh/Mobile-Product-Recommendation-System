@@ -13,6 +13,12 @@ function readParams() {
   const q = params.get("q");
   const persona = params.get("persona");
   if (q) {
+    // Checked before any processing: a banned browser sees the restriction
+    // message here too, even if it lands on this URL directly (shared link,
+    // or /api/parse having already redirected here with no profile).
+    if (typeof AIGuard !== "undefined" && AIGuard.isBanned()) {
+      return { blocked: true, message: AIGuard.banMessage() };
+    }
     let prefs = null;
     try {
       const profile = JSON.parse(params.get("profile") || "null");
@@ -25,7 +31,9 @@ function readParams() {
     if (!prefs) {
       const screened = screenQuery(q);
       if (screened.blocked) {
-        return { blocked: true, message: screened.message };
+        // Only "abuse" counts as a strike -- competitor/off-topic asks never should.
+        const message = screened.reason === "abuse" ? AIGuard.recordAbuseStrike().message : screened.message;
+        return { blocked: true, message };
       }
       prefs = extractPreferences(q);
     }

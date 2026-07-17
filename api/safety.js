@@ -34,18 +34,23 @@ function extractBudgetInr(value) {
   return contextual ? Number(contextual[1]) : null;
 }
 
+// `reason` distinguishes WHY a request was blocked, because the client uses
+// it to decide whether this counts as a strike toward the abuse escalation
+// (warn once, restrict for 24h on the second offense) -- competitor-phone
+// and length blocks are not abuse and must never count toward a ban.
 function screenUserText(value) {
   const raw = typeof value === "string" ? value.trim() : "";
-  if (!raw) return { blocked: false, text: "", message: "" };
+  if (!raw) return { blocked: false, text: "", message: "", reason: null };
   if (raw.length > 1000) {
     return {
       blocked: true,
       text: "",
       message: "Please keep your description under 1,000 characters so I can process it safely.",
+      reason: "length",
     };
   }
   if (ABUSE_RE.test(raw) || THREAT_RE.test(raw)) {
-    return { blocked: true, text: "", message: SAFE_REDIRECT };
+    return { blocked: true, text: "", message: SAFE_REDIRECT, reason: "abuse" };
   }
   // Block before the Gemini call, not after: without this, "recommend me an
   // iPhone" reaches the model, which infers weights from whatever it can and
@@ -53,9 +58,9 @@ function screenUserText(value) {
   // catalogue as if the off-topic request had been understood. Blocking here
   // also means the request never leaves for Gemini at all, saving quota.
   if (COMPETITOR_RE.test(raw)) {
-    return { blocked: true, text: "", message: SAFE_REDIRECT };
+    return { blocked: true, text: "", message: SAFE_REDIRECT, reason: "competitor" };
   }
-  return { blocked: false, text: redactPii(raw), message: "" };
+  return { blocked: false, text: redactPii(raw), message: "", reason: null };
 }
 
 function safetySettings() {

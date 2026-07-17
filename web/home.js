@@ -14,8 +14,17 @@ const input = document.getElementById("describe-input");
 if (input) {
   const button = document.getElementById("describe-go");
   const feedback = document.getElementById("describe-feedback");
+  const showFeedback = (text) => {
+    if (feedback) { feedback.textContent = text; feedback.hidden = false; }
+    button.disabled = false;
+    button.textContent = "Find my Galaxy";
+  };
+
   const go = async () => {
     if (!input.value.trim()) { input.focus(); return; }
+    // Checked before spending a network round trip: a banned browser gets
+    // the same restriction message immediately, every time, until it lifts.
+    if (AIGuard.isBanned()) { showFeedback(AIGuard.banMessage()); return; }
     const query = input.value.trim();
     button.disabled = true;
     button.textContent = "Finding...";
@@ -37,12 +46,13 @@ if (input) {
         });
         const data = await response.json();
         if (data && data.blocked) {
-          if (feedback) {
-            feedback.textContent = data.message || "I can help you choose a Galaxy phone. Tell me your budget and priorities.";
-            feedback.hidden = false;
+          // Only a genuine "abuse" reason counts as a strike -- asking about
+          // an iPhone, or writing too much, is never grounds for a ban.
+          if (data.reason === "abuse") {
+            showFeedback(AIGuard.recordAbuseStrike().message);
+          } else {
+            showFeedback(data.message || "I can help you choose a Galaxy phone. Tell me your budget and priorities.");
           }
-          button.disabled = false;
-          button.textContent = "Find my Galaxy";
           return;
         }
         profile = data && data.profile;

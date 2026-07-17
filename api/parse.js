@@ -95,15 +95,38 @@ async function callGemini(model, query, apiKey) {
 }
 
 // Groq's OpenAI-compatible JSON mode guarantees valid JSON syntax, not a
-// specific schema the way Gemini's typed responseSchema does -- but
-// normalizeProfile() already validates/clamps the shape regardless of which
-// provider produced it, so that gap is covered by existing code, not new code.
+// specific shape the way Gemini's typed responseSchema does. Observed live:
+// llama-3.1-8b-instant nested the whole thing under a "preferences" key with
+// "budget": {min, max}, instead of the flat camera/performance/.../
+// budget_min/budget_max shape the prompt asked for -- valid JSON, wrong
+// shape, so JSON.parse succeeded and normalizeProfile() correctly rejected
+// it (none of the flat keys existed). Unwrap the shapes actually seen before
+// normalizeProfile() does its usual validate-and-clamp pass.
+function coerceGroqProfile(raw) {
+  if (!raw || typeof raw !== "object") return raw;
+  let obj = raw;
+  if (!DIMENSIONS.some((d) => obj[d] !== undefined)) {
+    const nested = Object.values(raw).find(
+      (v) => v && typeof v === "object" && DIMENSIONS.some((d) => v[d] !== undefined)
+    );
+    if (nested) obj = nested;
+  }
+  if (obj.budget && typeof obj.budget === "object") {
+    obj = {
+      ...obj,
+      budget_min: obj.budget_min ?? obj.budget.min,
+      budget_max: obj.budget_max ?? obj.budget.max,
+    };
+  }
+  return obj;
+}
+
 async function callGroqForProfile(model, query, apiKey) {
   const text = await callGroq(model, SYSTEM_INSTRUCTION, `SHOPPER REQUEST:\n${query}`, apiKey, {
     jsonMode: true,
     maxTokens: 256,
   });
-  return normalizeProfile(JSON.parse(text));
+  return normalizeProfile(coerceGroqProfile(JSON.parse(text)));
 }
 
 module.exports = async function handler(req, res) {
@@ -115,7 +138,7 @@ module.exports = async function handler(req, res) {
     const screened = screenUserText(body.query);
     if (!screened.text && !screened.blocked) return res.status(400).json({ error: "query required" });
     if (screened.blocked) {
-      return res.status(200).json({ profile: null, source: "blocked", blocked: true, message: screened.message || SAFE_REDIRECT });
+      return res.status(200).json({ profile: null, source: "blocked", blocked: true, message: screened.message || SAFE_REDIRECT, reason: screened.reason });
     }
 
     const useGroq = groqConfigured();

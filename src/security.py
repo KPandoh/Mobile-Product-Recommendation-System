@@ -85,11 +85,16 @@ def extract_budget_inr(text: str) -> int | None:
     return int(contextual.group(1)) if contextual else None
 
 
-def screen_user_text(text: str) -> dict[str, str | bool]:
+def screen_user_text(text: str) -> dict[str, str | bool | None]:
     """Apply length, abuse, and basic privacy controls to free text.
 
     The returned text is the only version that should be sent to a model.
     Matched abusive text is never echoed back to the user or logged.
+
+    `reason` says WHY a request was blocked, because callers use it to decide
+    whether this counts as a strike toward the abuse escalation (warn once,
+    then restrict repeat offenders) -- competitor-phone and length blocks are
+    not abuse and must never count toward that.
     """
     raw = str(text or "").strip()
     if len(raw) > 1000:
@@ -97,10 +102,13 @@ def screen_user_text(text: str) -> dict[str, str | bool]:
             "blocked": True,
             "text": "",
             "message": "Please keep your description under 1,000 characters so I can process it safely.",
+            "reason": "length",
         }
-    if _ABUSE_RE.search(raw) or _THREAT_RE.search(raw) or _COMPETITOR_RE.search(raw):
-        return {"blocked": True, "text": "", "message": SAFE_REDIRECT}
-    return {"blocked": False, "text": redact_pii(raw), "message": ""}
+    if _ABUSE_RE.search(raw) or _THREAT_RE.search(raw):
+        return {"blocked": True, "text": "", "message": SAFE_REDIRECT, "reason": "abuse"}
+    if _COMPETITOR_RE.search(raw):
+        return {"blocked": True, "text": "", "message": SAFE_REDIRECT, "reason": "competitor"}
+    return {"blocked": False, "text": redact_pii(raw), "message": "", "reason": None}
 
 
 def validate_grounded_output(text: str, phone_row=None, min_facts: int = 2) -> bool:

@@ -39,5 +39,47 @@ const AIGuard = (() => {
     catch (_) { /* storage full or disabled — degrade to no cache */ }
   }
 
-  return { isDown, noteResult, cacheGet, cacheSet };
+  // Escalating abuse guard: warn on the first abusive/threatening input,
+  // restrict for 24h on the second. localStorage (not sessionStorage) on
+  // purpose — a ban needs to outlive closing the tab. This is honestly
+  // client-side and per-browser: it stops someone from repeating abuse in
+  // the same session (the realistic case during a demo), not a hardened,
+  // server-tracked ban across devices — this is a static site with no
+  // database, and that's the correct tradeoff for what this needs to do.
+  const ABUSE_KEY = "gm_abuse_strikes";
+  const BAN_KEY = "gm_abuse_ban_until";
+  const BAN_MS = 24 * 60 * 60 * 1000;
+
+  const WARNING_MESSAGE =
+    "That kind of language isn't necessary here. Please rephrase — repeated abuse will restrict access to GalaxyMatch for 24 hours.";
+
+  function isBanned() {
+    const until = Number(localStorage.getItem(BAN_KEY) || 0);
+    if (Date.now() < until) return true;
+    if (until) { // ban has expired — clear it and give a clean slate
+      localStorage.removeItem(BAN_KEY);
+      localStorage.removeItem(ABUSE_KEY);
+    }
+    return false;
+  }
+
+  function banMessage() {
+    const until = Number(localStorage.getItem(BAN_KEY) || 0);
+    const hrs = Math.max(1, Math.ceil((until - Date.now()) / (60 * 60 * 1000)));
+    return `You've been restricted for repeated abusive language. Try again in about ${hrs} hour${hrs === 1 ? "" : "s"}.`;
+  }
+
+  // Call ONLY when a block's reason was specifically "abuse" — never for
+  // off-topic (competitor) or length-limit blocks, which are not abuse and
+  // must never push someone toward a ban for asking about an iPhone.
+  function recordAbuseStrike() {
+    const count = Number(localStorage.getItem(ABUSE_KEY) || 0) + 1;
+    localStorage.setItem(ABUSE_KEY, String(count));
+    if (count >= 2) {
+      localStorage.setItem(BAN_KEY, String(Date.now() + BAN_MS));
+    }
+    return { count, message: count >= 2 ? banMessage() : WARNING_MESSAGE };
+  }
+
+  return { isDown, noteResult, cacheGet, cacheSet, isBanned, banMessage, recordAbuseStrike };
 })();

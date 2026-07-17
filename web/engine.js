@@ -75,20 +75,32 @@ function generateExplanation(weights, p) {
 }
 
 // ---------- Free-text extraction (ported from src/personas.py) ----------
-// Mirrors api/safety.js's COMPETITOR_RE. This is a client-only, no-network
-// path (used when /api/parse was skipped or failed), so it needs its own
-// screen: without it, "recommend me an iPhone" matches no KEYWORDS below,
-// falls into the default weights, and quietly returns a Samsung phone as if
-// the input had been understood — which reads as a random, unrelated answer.
+// Mirrors api/safety.js's COMPETITOR_RE / ABUSE_RE / THREAT_RE. This is a
+// client-only, no-network path (used when /api/parse was skipped by
+// AIGuard's circuit breaker, or failed), so it needs its own screen. Two
+// gaps without it: "recommend me an iPhone" matches no KEYWORDS below and
+// quietly returns a Samsung phone as if understood, and — the one that
+// mattered more — abusive text had NO screening at all on this path, only
+// the competitor check, since it was added later and never backfilled here.
 const COMPETITOR_RE = /\b(?:iphone|apple|pixel|google pixel|oneplus|xiaomi|redmi|oppo|vivo|realme)\b/i;
+const ABUSE_RE = /\b(?:fuck(?:ing|ed)?|shit(?:ty)?|bitch|asshole|dumbass|idiot|moron|stupid)\b/i;
+const THREAT_RE = /\b(?:kill|hurt|attack|bomb|shoot)\s+(?:you|yourself|me|someone|people)\b/i;
 const SAMSUNG_ONLY_MESSAGE =
   "We provide recommendations for Samsung Galaxy phones only. Tell me your budget and what matters most — camera, gaming, battery, display, or value.";
+const SAFE_REDIRECT_MESSAGE =
+  "I can help you choose a Samsung Galaxy phone. Tell me your budget and what matters most, such as camera, gaming, battery, display, or value.";
 
+// `reason` mirrors api/safety.js's contract: only "abuse" should ever count
+// as a strike toward AIGuard's warn-then-restrict escalation.
 function screenQuery(text) {
-  if (COMPETITOR_RE.test(String(text || ""))) {
-    return { blocked: true, message: SAMSUNG_ONLY_MESSAGE };
+  const raw = String(text || "");
+  if (ABUSE_RE.test(raw) || THREAT_RE.test(raw)) {
+    return { blocked: true, message: SAFE_REDIRECT_MESSAGE, reason: "abuse" };
   }
-  return { blocked: false, message: "" };
+  if (COMPETITOR_RE.test(raw)) {
+    return { blocked: true, message: SAMSUNG_ONLY_MESSAGE, reason: "competitor" };
+  }
+  return { blocked: false, message: "", reason: null };
 }
 
 const KEYWORDS = {
