@@ -50,6 +50,15 @@ The site still shows its local explanation template if the key is missing or
 Gemini is temporarily unavailable. Do not put `GEMINI_API_KEY` in `web/` or in
 client-side JavaScript.
 
+**Optional second provider — Groq.** Gemini's free tier is 20 requests/day
+per model; Groq's is 14,400/day on `llama-3.1-8b-instant`, useful if you want
+headroom for a live demo without watching the quota. Add `GROQ_API_KEY` as a
+Vercel environment variable and redeploy — `api/providers.js` routes both
+functions through Groq automatically when that key is present, with no other
+change needed. To go back to Gemini, remove `GROQ_API_KEY` and redeploy; env
+var changes only take effect on a new deployment. Same key stays server-side
+rule applies: never in `web/`, never in client-side JavaScript.
+
 ### Run the notebook app
 
 1. Install [Anaconda](https://www.anaconda.com/download), then:

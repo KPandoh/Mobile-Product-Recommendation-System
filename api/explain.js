@@ -16,6 +16,7 @@ const PROVIDER_TIMEOUT_MS = 12000;
 const CATALOG = require("../web/data/phones.json");
 const DIMENSIONS = ["camera", "performance", "battery", "display", "value"];
 const { safetySettings, isProviderSafetyBlock, validateExplanation } = require("./safety");
+const { groqConfigured, callGroq, GROQ_MODEL, GROQ_FALLBACK_MODEL } = require("./providers");
 
 const SYSTEM_INSTRUCTION = `You are Samsung's Galaxy product advisor for GalaxyMatch, an in-store shopping assistant. You only discuss Samsung Galaxy phones that appear in the catalogue provided to you.
 
@@ -177,7 +178,8 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "POST only" });
   }
-  const apiKey = process.env.GEMINI_API_KEY;
+  const useGroq = groqConfigured();
+  const apiKey = useGroq ? process.env.GROQ_API_KEY : process.env.GEMINI_API_KEY;
   if (!apiKey) {
     // No key configured on the server: tell the client to use its local
     // template rather than erroring. The site must never render blank.
@@ -195,16 +197,20 @@ module.exports = async function handler(req, res) {
     const prompt = buildPrompt(phone, weights);
     let text, model;
     try {
-      text = await callGemini(MODEL, prompt, apiKey);
-      model = MODEL;
+      text = useGroq
+        ? await callGroq(GROQ_MODEL, SYSTEM_INSTRUCTION, prompt, apiKey)
+        : await callGemini(MODEL, prompt, apiKey);
+      model = useGroq ? GROQ_MODEL : MODEL;
     } catch (e) {
       if (e.blocked) {
         return res.status(200).json({ text: null, source: "blocked" });
       }
       // 503 busy / 429 quota -> the fallback model has its own allowance.
       if (e.status === 503 || e.status === 429) {
-        text = await callGemini(FALLBACK_MODEL, prompt, apiKey);
-        model = FALLBACK_MODEL;
+        text = useGroq
+          ? await callGroq(GROQ_FALLBACK_MODEL, SYSTEM_INSTRUCTION, prompt, apiKey)
+          : await callGemini(FALLBACK_MODEL, prompt, apiKey);
+        model = useGroq ? GROQ_FALLBACK_MODEL : FALLBACK_MODEL;
       } else {
         throw e;
       }
@@ -212,7 +218,7 @@ module.exports = async function handler(req, res) {
     if (!validateExplanation(text, phone)) {
       return res.status(200).json({ text: null, source: "validation-fallback" });
     }
-    return res.status(200).json({ text, source: "gemini", model });
+    return res.status(200).json({ text, source: useGroq ? "groq" : "gemini", model });
   } catch (e) {
     // Any other failure: 200 with text:null so the client falls back cleanly.
     // Do not send provider error details to the browser.
