@@ -17,7 +17,7 @@ function readParams() {
     // message here too, even if it lands on this URL directly (shared link,
     // or /api/parse having already redirected here with no profile).
     if (typeof AIGuard !== "undefined" && AIGuard.isBanned()) {
-      return { blocked: true, message: AIGuard.banMessage() };
+      return { blocked: true, message: AIGuard.banMessage(), reason: "abuse" };
     }
     let prefs = null;
     try {
@@ -33,7 +33,7 @@ function readParams() {
       if (screened.blocked) {
         // Only "abuse" counts as a strike -- competitor/off-topic asks never should.
         const message = screened.reason === "abuse" ? AIGuard.recordAbuseStrike().message : screened.message;
-        return { blocked: true, message };
+        return { blocked: true, message, reason: screened.reason };
       }
       prefs = extractPreferences(q);
     }
@@ -41,8 +41,11 @@ function readParams() {
     // AI parse or local extraction) -- neither path carries a "requires S
     // Pen" concept, and this is a hard filter, not a weight to infer.
     const requireSPen = SPEN_RE.test(q);
+    // Kept on state so paint() can match named models against the loaded
+    // catalogue -- neither the AI parse nor the local extractor carries a
+    // "the shopper named this exact phone" concept.
     return { weights: prefs.weights, budget: [prefs.budget_min, prefs.budget_max],
-      personaId: null, label: "Based on your description", requireSPen };
+      personaId: null, label: "Based on your description", requireSPen, query: q };
   }
   // Track PERSONAS rather than hardcoding an id — a stale hardcoded "arjun"
   // is exactly what left the notebook dropdown throwing TraitError for two days
@@ -50,7 +53,7 @@ function readParams() {
   const id = persona && PERSONAS[persona] ? persona : Object.keys(PERSONAS)[0];
   const p = PERSONAS[id];
   return { weights: p.weights, budget: [p.budget_min, p.budget_max],
-    personaId: id, label: `For ${p.name} — ${p.need}`, requireSPen: false };
+    personaId: id, label: `For ${p.name} — ${p.need}`, requireSPen: false, query: null };
 }
 
 function inr(n) { return "₹" + n.toLocaleString("en-IN"); }
@@ -159,15 +162,25 @@ function deckCard(rank, p) {
 
 function paint() {
   const [bmin, bmax] = state.budget;
-  // A hard filter, not a weight: "with S Pen" narrows the candidate pool to
-  // the Ultra/Fold tiers (the only real S Pen-capable models in the
-  // catalogue) before ranking, rather than hoping a heavier weight happens
-  // to surface one.
-  const candidates = state.requireSPen ? PHONES.filter(p => SPEN_MODELS_RE.test(p.model_name)) : PHONES;
+  // Hard filters, not weights. Naming a model wins over everything: asking
+  // for an "s26" must show an S26 even though it sits far outside the default
+  // budget -- recommend()'s own under-3-matches fallback widens past the
+  // budget for us, so the named phone still ranks instead of vanishing.
+  const named = state.query ? matchNamedModels(state.query, PHONES) : [];
+  let candidates = named.length ? named : PHONES;
+  if (state.requireSPen) {
+    // Never let this empty the pool -- an S Pen ask alongside a named model
+    // that has no S Pen should still show the phone that was asked for.
+    const withSPen = candidates.filter(p => SPEN_MODELS_RE.test(p.model_name));
+    if (withSPen.length) candidates = withSPen;
+  }
   const top3 = rankResults(recommend(state.weights, bmin, bmax, candidates), 3);
 
+  const notes = [];
+  if (named.length) notes.push(`Showing ${named.length === 1 ? "the" : ""} model${named.length > 1 ? "s" : ""} you named`);
+  if (state.requireSPen) notes.push("S Pen models only");
   document.getElementById("matches-sub").textContent =
-    state.requireSPen ? `${state.label} · S Pen models only` : state.label;
+    notes.length ? `${state.label} · ${notes.join(" · ")}` : state.label;
 
   const list = document.getElementById("rec-list");
   list.innerHTML = top3.map((p, i) => recRow(i, p)).join("");
@@ -222,7 +235,7 @@ function renderChips() {
   host.querySelectorAll(".chip").forEach(chip => chip.addEventListener("click", () => {
     const id = chip.dataset.id, p = PERSONAS[id];
     state = { weights: p.weights, budget: [p.budget_min, p.budget_max],
-      personaId: id, label: `For ${p.name} — ${p.need}`, requireSPen: false };
+      personaId: id, label: `For ${p.name} — ${p.need}`, requireSPen: false, query: null };
     history.replaceState(null, "", `?persona=${id}`);
     host.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.id === id));
     paint();
@@ -234,7 +247,12 @@ async function boot() {
   state = readParams();
   renderChips(); // leave the persona chips available as a recovery path
   if (state.blocked) {
-    document.getElementById("matches-sub").textContent = state.message;
+    const sub = document.getElementById("matches-sub");
+    sub.textContent = state.message;
+    // Same notice styling as the describe box, so a block reads the same way
+    // on whichever page the shopper happens to hit it.
+    sub.className = "describe-feedback";
+    sub.classList.toggle("tone-error", state.reason === "abuse");
     document.getElementById("rec-list").innerHTML = "";
     document.getElementById("cs-stage").innerHTML = "";
     return;

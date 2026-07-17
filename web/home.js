@@ -14,8 +14,15 @@ const input = document.getElementById("describe-input");
 if (input) {
   const button = document.getElementById("describe-go");
   const feedback = document.getElementById("describe-feedback");
-  const showFeedback = (text) => {
-    if (feedback) { feedback.textContent = text; feedback.hidden = false; }
+  // tone "error" (red) is for abuse warnings and the 24h restriction only --
+  // an unknown model or an off-topic ask is informational, not misconduct,
+  // and shouldn't be coloured like a telling-off.
+  const showFeedback = (text, tone = "info") => {
+    if (feedback) {
+      feedback.textContent = text;
+      feedback.classList.toggle("tone-error", tone === "error");
+      feedback.hidden = false;
+    }
     button.disabled = false;
     button.textContent = "Find my Galaxy";
   };
@@ -33,7 +40,7 @@ if (input) {
     if (!input.value.trim()) { input.focus(); return; }
     // Checked before spending a network round trip: a banned browser gets
     // the same restriction message immediately, every time, until it lifts.
-    if (AIGuard.isBanned()) { showFeedback(AIGuard.banMessage()); return; }
+    if (AIGuard.isBanned()) { showFeedback(AIGuard.banMessage(), "error"); return; }
     const query = input.value.trim();
     localStorage.setItem(LAST_QUERY_KEY, query);
     button.disabled = true;
@@ -59,7 +66,7 @@ if (input) {
           // Only a genuine "abuse" reason counts as a strike -- asking about
           // an iPhone, or writing too much, is never grounds for a ban.
           if (data.reason === "abuse") {
-            showFeedback(AIGuard.recordAbuseStrike().message);
+            showFeedback(AIGuard.recordAbuseStrike().message, "error");
           } else {
             showFeedback(data.message || "I can help you choose a Galaxy phone. Tell me your budget and priorities.");
           }
